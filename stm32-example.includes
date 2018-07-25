@@ -1,0 +1,12 @@
+.
+stm32/CMSIS/Device/ST/STM32F4xx/Include
+stm32/CMSIS/DSP_Lib/Examples/arm_convolution_example/ARM
+stm32/CMSIS/DSP_Lib/Examples/arm_convolution_example/GCC
+stm32/CMSIS/DSP_Lib/Examples/arm_fir_example/ARM
+stm32/CMSIS/DSP_Lib/Examples/arm_graphic_equalizer_example/ARM
+stm32/CMSIS/DSP_Lib/Examples/arm_linear_interp_example/ARM
+stm32/CMSIS/DSP_Lib/Examples/arm_matrix_example/ARM
+stm32/CMSIS/DSP_Lib/Examples/arm_signal_converge_example/ARM
+stm32/CMSIS/Include
+stm32/CMSIS/RTOS/Template
+stm32/STM32F4xx_StdPeriph_Driver/inc
