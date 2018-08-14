@@ -14,12 +14,16 @@ SOURCES += $(PERIPH)/src/stm32f4xx_gpio.c \
 		   $(PERIPH)/src/stm32f4xx_rcc.c \
 		   $(PERIPH)/src/stm32f4xx_spi.c \
 		   $(PERIPH)/src/stm32f4xx_exti.c \
+		   $(PERIPH)/src/stm32f4xx_dma.c \
+		   $(PERIPH)/src/stm32f4xx_usart.c \
+		   $(PERIPH)/src/stm32f4xx_tim.c \
+		   $(PERIPH)/src/misc.c \
 		   $(PERIPH)/src/stm32f4xx_syscfg.c 
 
 SOURCES += startup_stm32f4xx.s
 SOURCES += system_stm32f4xx.c
 
-SOURCES += main.c
+SOURCES += main.c LC24.c
 
 OBJECTS = $(addprefix $(BUILDDIR)/, $(addsuffix .o, $(basename $(SOURCES))))
 
@@ -42,7 +46,7 @@ OBJCOPY = arm-none-eabi-objcopy
 CFLAGS  = -O0 -g -Wall -I.\
    -mcpu=cortex-m4 -mthumb \
    -mfpu=fpv4-sp-d16 -mfloat-abi=hard \
-   $(INCLUDES) -DUSE_STDPERIPH_DRIVER -D$(CONTROLLER)
+   $(INCLUDES) -DUSE_STDPERIPH_DRIVER -D$(CONTROLLER) -DHSE_VALUE=8000000UL
 
 LDSCRIPT = stm32_flash.ld
 LDFLAGS += -T$(LDSCRIPT) -mthumb -mcpu=cortex-m4 -nostdlib
