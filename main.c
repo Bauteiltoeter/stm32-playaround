@@ -8,8 +8,13 @@
 #include "stm32f4xx_gpio.h"
 #include "stm32f4xx_usart.h"
 #include "misc.h"
+#include "LC24.h"
 
 static uint16_t __timer = 0;
+static int timer_bt1=0;
+static int timer_bt2=0;
+static int timer_bt3=0;
+static unsigned int time=0;
 
 void Delay(uint16_t n)
 {
@@ -57,6 +62,29 @@ void USART_Config(void)
     USART_Cmd(USART1, ENABLE);
 }
 
+void loadRandomImage(lc24_t* lc)
+{
+    int  i=rand()%3;
+
+    switch(i)
+    {
+        case 0:
+        lc24_loadImage(lc, img_ohyou);
+        lc24_setBackground(lc,lc24_bg_bright_green);
+        break;
+        case 1:
+        lc24_loadImage(lc, img_rebel);
+        lc24_setBackground(lc,lc24_bg_bright_green);
+        break;
+        case 2:
+        lc24_loadImage(lc, img_nuke);
+        lc24_setBackground(lc,lc24_bg_bright_green);
+        break;
+
+    }
+
+
+}
 
 
 int main(void)
@@ -79,7 +107,7 @@ int main(void)
 
     RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOC, ENABLE);
 
-    GPIO_InitDef.GPIO_Pin = GPIO_Pin_0;
+    GPIO_InitDef.GPIO_Pin = GPIO_Pin_13|GPIO_Pin_14|GPIO_Pin_15;
     GPIO_InitDef.GPIO_Mode = GPIO_Mode_IN;
     GPIO_InitDef.GPIO_PuPd = GPIO_PuPd_UP;
     GPIO_InitDef.GPIO_Speed = GPIO_Speed_50MHz;
@@ -94,50 +122,68 @@ int main(void)
 
     Delay(1000);
 
+    lc24_t* lc1, *lc2,*lc3;
+    lc1 = lc24_getDisplay(0);
+    lc2 = lc24_getDisplay(1);
+    lc3 = lc24_getDisplay(2);
+
+    lc24_loadImage(lc1, img_do_not_touch);
+    lc24_loadImage(lc2, img_do_not_touch);
+    lc24_loadImage(lc3, img_do_not_touch);
 
 
-    uint8_t pixmap[108];
-int j=0;
     while (1)
     {
-GPIO_SetBits(GPIOG,GPIO_Pin_13);
-
-        if(GPIO_ReadInputDataBit(GPIOC,GPIO_Pin_0))
+        if(GPIO_ReadInputDataBit(GPIOC,GPIO_Pin_14)==0)
         {
-
-          //  GPIO_SetBits(GPIOG,GPIO_Pin_14);
-
-
-        }
-        else
-        {
-            uint8_t tmp=0x33;
-            lc24_writeData(0xED,&tmp,1); //color
-
-
-            //GPIO_ResetBits(GPIOG,GPIO_Pin_14);
-uint8_t image[] = {0x08,0xF0,0xFF,0x21,0x94,0xC1,0xE9,0x10,0x62,0x03,0x07,0x00,0x04,0x63,0x30,0x00,0xC0,0x10,0xC0,0x00,0x00,0x08,0x08,0x0E,0x00,0x00,0xC3,0x63,0x00,0x00,0x30,0x06,0x03,0x00,0x00,0x22,0x10,0x00,0x00,0x40,0x10,0x01,0x00,0x00,0x04,0x11,0x00,0x00,0x60,0x00,0x01,0x0E,0x02,0xC2,0x10,0x9E,0x71,0x20,0x36,0x32,0x10,0x09,0x01,0xC0,0x00,0x91,0x11,0x00,0x00,0x10,0xE1,0xF0,0x04,0x00,0x11,0x00,0x60,0x00,0x18,0x03,0x00,0x02,0x80,0x20,0xC0,0x30,0x00,0x08,0x02,0x18,0x01,0xC0,0x60,0x00,0x07,0x00,0x06,0x0C,0x40,0x00,0x30,0x80,0x01,0x00,0xE0,0x01,0xF0,0x00,};
-            lc24_loadImage(image);
-
+            loadRandomImage(lc1);
+            Delay(100);
+            timer_bt1=1500;
         }
 
+        if(GPIO_ReadInputDataBit(GPIOC,GPIO_Pin_15)==0)
+        {
+            loadRandomImage(lc2);
+            Delay(100);
+            timer_bt2=1500;
+        }
 
+        if(GPIO_ReadInputDataBit(GPIOC,GPIO_Pin_13)==0)
+        {
+            loadRandomImage(lc3);
+            Delay(100);
+            timer_bt3=1500;
+        }
 
+        if(timer_bt1==0)
+        {
+            lc24_loadImage(lc1, img_do_not_touch);
+            lc24_setBackground(lc1,lc24_bg_bright_red);
+            timer_bt1=-1;
+        }
 
+        if(timer_bt2==0)
+        {
+            lc24_loadImage(lc2, img_do_not_touch);
+            lc24_setBackground(lc2,lc24_bg_bright_red);
+            timer_bt2=-1;
+        }
 
+        if(timer_bt3==0)
+        {
+            lc24_loadImage(lc3, img_do_not_touch);
+            lc24_setBackground(lc3,lc24_bg_bright_red);
+            timer_bt3=-1;
+        }
 
         Delay(10);
-
-
-
-        //DEBUG_writeString("Hallo motherfucker\r\n");
     }
 }
 
 void DEBUG_writeString(char* str)
 {
     char c;
-    while( c=*str)
+    while((c=*str))
     {
         str++;
         while (!USART_GetFlagStatus(USART1, USART_FLAG_TXE));
@@ -148,8 +194,16 @@ void DEBUG_writeString(char* str)
 
 void SysTick_Handler(void)
 {
+    time++;
     if (__timer > 0)
         __timer--;
+
+    if(timer_bt1>0)
+        timer_bt1--;
+    if(timer_bt2>0)
+        timer_bt2--;
+    if(timer_bt3>0)
+        timer_bt3--;
 }
 
 void assert_param(int x)

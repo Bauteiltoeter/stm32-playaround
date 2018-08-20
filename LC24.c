@@ -8,35 +8,28 @@
 #include "stm32f4xx_tim.h"
 #include "misc.h"
 
-#define FIFO_SIZE 512
-#define LCD_WIDTH 36
-#define LCD_HEIGHT 24
-typedef enum
-{
-    FIFO_EMPTY,
-    FIFO_NORM,
-    FIFO_FULL
-} fifo_status_t;
-
-typedef struct
-{
-    uint16_t data[FIFO_SIZE];
-    int write;
-    int read;
-    fifo_status_t status;
-
-} fifo_t;
 
 
-static void lc24_writeByte(uint8_t byte, uint8_t should_parity);//0: even, 1: odd
-static void lc24_writePixmap(void);
+
+static void lc24_writeByte(lc24_t* lc, uint8_t byte, uint8_t should_parity);//0: even, 1: odd
+static void lc24_writePixmap(lc24_t* lc);
 
 void fifo_push(fifo_t* fifo, uint16_t value);
 void fifo_pop(fifo_t* fifo, uint16_t* value);
 
-uint8_t pixmap[108];
 
-static volatile fifo_t datafifo;
+static fifo_t datafifo1;
+static fifo_t datafifo2;
+static fifo_t datafifo3;
+
+static lc24_t button1;
+static lc24_t button2;
+static lc24_t button3;
+
+uint8_t img_nuke[]= {0x08,0xF0,0xFF,0x21,0x94,0xC1,0xE9,0x10,0x62,0x03,0x07,0x00,0x04,0x63,0x30,0x00,0xC0,0x10,0xC0,0x00,0x00,0x08,0x08,0x0E,0x00,0x00,0xC3,0x63,0x00,0x00,0x30,0x06,0x03,0x00,0x00,0x22,0x10,0x00,0x00,0x40,0x10,0x01,0x00,0x00,0x04,0x11,0x00,0x00,0x60,0x00,0x01,0x0E,0x02,0xC2,0x10,0x9E,0x71,0x20,0x36,0x32,0x10,0x09,0x01,0xC0,0x00,0x91,0x11,0x00,0x00,0x10,0xE1,0xF0,0x04,0x00,0x11,0x00,0x60,0x00,0x18,0x03,0x00,0x02,0x80,0x20,0xC0,0x30,0x00,0x08,0x02,0x18,0x01,0xC0,0x60,0x00,0x07,0x00,0x06,0x0C,0x40,0x00,0x30,0x80,0x01,0x00,0xE0,0x01,0xF0,0x00,};
+uint8_t img_do_not_touch[] = {0x00,0x00,0x00,0x00,0x40,0x00,0x00,0x00,0xF0,0x04,0x00,0x00,0x80,0xF8,0x1C,0x1E,0x70,0x84,0x64,0x93,0x81,0x4D,0x48,0x22,0x11,0x88,0x84,0x24,0x12,0x81,0x48,0x48,0x36,0x11,0xD8,0x88,0xC7,0x11,0x01,0x07,0x0F,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x1C,0x0E,0xE7,0xF1,0x20,0x12,0x89,0x98,0x0D,0x38,0x9C,0x0F,0x89,0xE0,0x70,0x80,0x90,0x08,0x22,0x91,0x0C,0xD9,0xC0,0xE1,0x70,0x10,0x0F,0x00,0x00,0x00,0x80,0x00,0x00,0x00,0x00,0x00,};
+uint8_t img_rebel[] = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x88,0x38,0x21,0x00,0x80,0xC8,0x16,0x02,0x00,0x88,0x44,0x12,0x00,0x80,0x48,0x24,0x01,0x00,0x98,0x6C,0x0C,0x00,0x80,0x87,0xC3,0x00,0x00,0x00,0x00,0x08,0x00,0x00,0x00,0x00,0x03,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x10,0x00,0x04,0x00,0x00,0x01,0x40,0x00,0x00,0x10,0x00,0x04,0x00,0x00,0x71,0x78,0x9C,0x07,0x90,0xC8,0x26,0x62,0x00,0xF9,0x44,0x3E,0x04,0x10,0x48,0x04,0x42,0x00,0xC9,0x6C,0x32,0x04,0x10,0x87,0xC7,0x41,0x00,0x00,0x00,0x00,0x00,};
+uint8_t img_ohyou[] = {0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x20,0x00,0x00,0x00,0x00,0xC2,0x01,0x00,0x00,0x20,0x22,0x00,0x00,0xE0,0x33,0x06,0x00,0x00,0x33,0x41,0x00,0x00,0x10,0x12,0x04,0x00,0x00,0x21,0x41,0x00,0x00,0x10,0x32,0x06,0x00,0x20,0x21,0x22,0x00,0x00,0x12,0xC2,0x01,0x00,0x20,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x88,0x38,0x21,0x00,0x80,0xC8,0x16,0x02,0x00,0x88,0x44,0x12,0x00,0x80,0x48,0x24,0x01,0x00,0x98,0x6C,0x0C,0x00,0x80,0x87,0xC3,0x00,0x00,0x00,0x00,0x08,0x00,0x00,0x00,0x00,0x03,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,};
 
 void fifo_push(fifo_t* fifo, uint16_t value)
 {
@@ -80,7 +73,7 @@ void fifo_pop(fifo_t* fifo, uint16_t* value)
 
 }
 
-void lc24_writeByte(uint8_t byte, uint8_t should_parity) //0: even, 1: odd
+void lc24_writeByte(lc24_t* lc, uint8_t byte, uint8_t should_parity) //0: even, 1: odd
 {
     uint16_t word=0xFFFF & ~(0x1FF<<1);
     uint8_t parity=0;
@@ -109,26 +102,39 @@ void lc24_writeByte(uint8_t byte, uint8_t should_parity) //0: even, 1: odd
     word |= paritybit<<9;
     word |= (1<<10) | 1<<11;
 
-    fifo_push(&datafifo, word);
+    fifo_push(lc->fifo, word);
 }
 
-void lc24_writeData(uint8_t reg, uint8_t* data, int length)
+void lc24_writeData(lc24_t *lc, uint8_t reg, uint8_t* data, int length)
 {
-    lc24_writeByte(0x00,0); //startbyte with even
-    lc24_writeByte(reg,1); //Write register with odd
+    lc24_writeByte(lc,0x00,0); //startbyte with even
+    lc24_writeByte(lc,reg,1); //Write register with odd
 
     for(int i=0; i < length; i++)
-        lc24_writeByte(data[i],1);
+        lc24_writeByte(lc,data[i],1);
 
-    lc24_writeByte(0xAA,0); //endbyte with even
+    lc24_writeByte(lc,0xAA,0); //endbyte with even
 }
 
 void lc24_init(void)
 {
     DEBUG_writeString("\r\nHallo?\r\n");
-    datafifo.status=FIFO_EMPTY;
-    datafifo.read =0;
-    datafifo.write=0;
+    datafifo1.status=FIFO_EMPTY;
+    datafifo1.read =0;
+    datafifo1.write=0;
+    datafifo2.status=FIFO_EMPTY;
+    datafifo2.read =0;
+    datafifo2.write=0;
+    datafifo3.status=FIFO_EMPTY;
+    datafifo3.read =0;
+    datafifo3.write=0;
+
+    button1.datapin = GPIO_Pin_2;
+    button1.fifo = &datafifo1;
+    button2.datapin = GPIO_Pin_3;
+    button2.fifo = &datafifo2;
+    button3.datapin = GPIO_Pin_1;
+    button3.fifo = &datafifo3;
 
     static uint8_t test[2];
     test[0] = 0xFF;
@@ -137,7 +143,7 @@ void lc24_init(void)
     RCC_AHB1PeriphClockCmd(RCC_AHB1Periph_GPIOF, ENABLE);
 
     GPIO_InitTypeDef GPIO_InitStruct;
-    GPIO_InitStruct.GPIO_Pin = GPIO_Pin_1 | GPIO_Pin_2 | GPIO_Pin_3 | GPIO_Pin_4 ; //4: Clock, 1-: Data
+    GPIO_InitStruct.GPIO_Pin = button1.datapin |  button2.datapin| button3.datapin | GPIO_Pin_4 ; //4: Clock, 1-: Data
     GPIO_InitStruct.GPIO_Mode = GPIO_Mode_OUT;
     GPIO_InitStruct.GPIO_Speed = GPIO_Speed_50MHz;
     GPIO_InitStruct.GPIO_OType = GPIO_OType_PP;
@@ -206,35 +212,46 @@ DMA_InitTypeDef dma;
     Delay(1000);
     uint8_t freq[2];
     uint8_t tmp=0xCC;
-    lc24_writeData(0xED,&tmp,1); //color
+    lc24_writeData(&button1, 0xED,&tmp,1); //color
+    lc24_writeData(&button2, 0xED,&tmp,1); //color
+    lc24_writeData(&button3, 0xED,&tmp,1); //color
 
     tmp=0x10;
-    lc24_writeData(0xEE,&tmp,1); //freq
+    lc24_writeData(&button1,0xEE,&tmp,1); //freq
+    lc24_writeData(&button2,0xEE,&tmp,1); //freq
+    lc24_writeData(&button3,0xEE,&tmp,1); //freq
 
 
     freq[0] = 0x07;
     freq[1] = 0x00;
-    lc24_writeData(0xEF,freq,2); //mux1
+    lc24_writeData(&button1,0xEF,freq,2); //mux1
+    lc24_writeData(&button2,0xEF,freq,2); //mux1
+    lc24_writeData(&button3,0xEF,freq,2); //mux1
 
     tmp=0x00;
-    lc24_writeData(0xF0,&tmp,1); //mux2
+    lc24_writeData(&button1,0xF0,&tmp,1); //mux2
+    lc24_writeData(&button2,0xF0,&tmp,1); //mux2
+    lc24_writeData(&button3,0xF0,&tmp,1); //mux2
 
     for(int i=0; i < 108; i++)
-        pixmap[i]=0x00;
+    {
 
+        button1.pixmap[i]=0x00;
+        button2.pixmap[i]=0x00;
+        button3.pixmap[i]=0x00;
 
-    lc24_writeData(0x80,&pixmap,108);
-
-    for(int i=0; i < 108; i++)
-        pixmap[i] = 0;
-
-    lc24_writePixmap();
+    }
+    lc24_writePixmap(&button1);
+    lc24_writePixmap(&button2);
+    lc24_writePixmap(&button3);
 }
 
 void TIM2_IRQHandler()
 {
     static int mode  = 0;
-    static volatile uint16_t dataword=0;
+    static volatile uint16_t dataword1=0;
+    static volatile uint16_t dataword2=0;
+    static volatile uint16_t dataword3=0;
     static int shift=0;
 
     // Checks whether the TIM2 interrupt has occurred or not
@@ -246,18 +263,21 @@ void TIM2_IRQHandler()
            mode = 1;
 
            //update data bit
-           if(dataword&(1<<shift)) //set data
-           {
-               GPIO_SetBits(GPIOF,GPIO_Pin_1);
-               GPIO_SetBits(GPIOF,GPIO_Pin_2);
-               GPIO_SetBits(GPIOF,GPIO_Pin_3);
-           }
+           if(dataword1&(1<<shift)) //set data
+               GPIO_SetBits(GPIOF,button1.datapin);
            else
-           {
-               GPIO_ResetBits(GPIOF,GPIO_Pin_2);
-               GPIO_ResetBits(GPIOF,GPIO_Pin_1);
-               GPIO_ResetBits(GPIOF,GPIO_Pin_3);
-            }
+               GPIO_ResetBits(GPIOF,button1.datapin);
+
+           if(dataword2&(1<<shift)) //set data
+               GPIO_SetBits(GPIOF,button2.datapin);
+           else
+               GPIO_ResetBits(GPIOF,button2.datapin);
+
+           if(dataword3&(1<<shift)) //set data
+               GPIO_SetBits(GPIOF,button3.datapin);
+           else
+               GPIO_ResetBits(GPIOF,button3.datapin);
+
            shift++;
         }
         else
@@ -268,7 +288,9 @@ void TIM2_IRQHandler()
             if(shift > 15)
             {
                 shift = 0;
-                fifo_pop(&datafifo, &dataword);
+                fifo_pop(button1.fifo, &dataword1);
+                fifo_pop(button2.fifo, &dataword2);
+                fifo_pop(button3.fifo, &dataword3);
             }
         }
 
@@ -278,22 +300,22 @@ void TIM2_IRQHandler()
 }
 
 
-void lc24_setPixel(int x, int y)
+void lc24_setPixel(lc24_t *lc, int x, int y)
 {
     unsigned int px = (LCD_WIDTH-1-x) + y*LCD_WIDTH;
     unsigned int byte = px/8;
     unsigned int bitoffset = px%8;
-    pixmap[byte] |= 1<<bitoffset;
-    lc24_writeData(0x80+byte,&pixmap[byte],1);
+    lc->pixmap[byte] |= 1<<bitoffset;
+    lc24_writeData(lc, 0x80+byte,&lc->pixmap[byte],1);
 
 }
 
-void lc24_writePixmap(void)
+void lc24_writePixmap(lc24_t *lc)
 {
-    lc24_writeData(0x80,&pixmap,108);
+    lc24_writeData(lc, 0x80,&lc->pixmap,108);
 }
 
-void lc24_drawLine(int x1, int y1, int x2, int y2)
+void lc24_drawLine(lc24_t* lc, int x1, int y1, int x2, int y2)
 {
     if(y1==y2)
     {
@@ -303,7 +325,7 @@ void lc24_drawLine(int x1, int y1, int x2, int y2)
             {
                 if(x2-x1>=8)
                 {
-                    pixmap[x1/8 + (y1*LCD_WIDTH/8)]=0xFF;
+                    lc->pixmap[x1/8 + (y1*LCD_WIDTH/8)]=0xFF;
                     x1+=8;
                 }
                 else
@@ -312,7 +334,7 @@ void lc24_drawLine(int x1, int y1, int x2, int y2)
                     int pixelcount = x2-x1;
                     for(unsigned int i=0; i <= pixelcount; i++)
                         pixels|=(1<<i);
-                    pixmap[x1/8+ (y1*(LCD_WIDTH/8))]|=pixels;
+                    lc->pixmap[x1/8+ (y1*(LCD_WIDTH/8))]|=pixels;
                     x1+=pixelcount;
 
                 }
@@ -322,13 +344,29 @@ void lc24_drawLine(int x1, int y1, int x2, int y2)
 
     }
 
-    lc24_writePixmap();
+    lc24_writePixmap(lc);
 }
 
-void lc24_loadImage(uint8_t* image)
+void lc24_loadImage(lc24_t* lc, uint8_t* image)
 {
- for(int i=0; i < 108; i++)
-          pixmap[i] = image[i];
+    for(int i=0; i < 108; i++)
+          lc->pixmap[i] = image[i];
 
-      lc24_writePixmap();
+    lc24_writePixmap(lc);
+}
+
+lc24_t *lc24_getDisplay(int number)
+{
+    switch(number)
+    {
+    case 0: return &button1; break;
+    case 1: return &button2; break;
+    case 2: return &button3; break;
+    }
+}
+
+void lc24_setBackground(lc24_t *lc, lc24_bg_t bg)
+{
+    uint8_t tmp=bg;
+    lc24_writeData(lc, 0xED,&tmp,1); //color
 }
